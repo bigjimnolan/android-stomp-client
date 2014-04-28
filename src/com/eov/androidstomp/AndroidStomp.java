@@ -18,19 +18,19 @@ import javax.security.auth.login.LoginException;
 
 /**
  * This method is the bare minimum to get a stomp client working over an ssl connection.  Configuration of the queue to use BKS is also
- * required if you need a secure secure connection.
+ * required if you need a secure connection.
+ * There are two simple methods: read and write.  They both open and close a connection during every transaction.  This works well in 
+ * sketchy data areas but future users my wish to re-use the sockets.
  * 
  * This MUST be complied with an android compatible version of JAVA (1.6) to work correctly.  It took me too long to remember that :)
  */
 public class AndroidStomp {
-  //private OutputStream _output;
-  //private InputStream _input;
-  //private BufferedReader readInput;
-  //private SSLSocket  _ssl_socket;
+
   private String CONNECTION_STRING;
   private SSLSocketFactory sockFact;
   
   //These are the stomp messages.  They full definition and list can be found at: http://stomp.github.io/lo
+  //the values in brackets '[]' are replaced by the passed in parameters as appropriate.
   private String begin = "BEGIN\r\ntransaction:sendtx\r\n\r\n\000\r\n";
   private String end = "COMMIT\r\ntransaction:sendtx\r\n\r\n\000\r\n";
   private String connectString = "CONNECT\r\nlogin:[userName]\r\npasscode:[password]\r\n\r\n\000\r\n";
@@ -43,11 +43,12 @@ public class AndroidStomp {
   private String queuePassword;
 
   /**
-   * Constructor
+   * This is the constructor.  It takes most of the values needed to send an receive messages.  
+   * 
    * @param inputStream  		The location of the keystore/key to use for ssl, this must be generated outside of this jar				
    * @param passedInServer		The url of the message queue server
    * @param trustStorePassword	The password for the device's truststore containing the key used for this ssl
-   * @param port				The server port for the ssl instance
+   * @param port				The server port for the stomp instance
    * @param queueUserName		The userName to log on to the server
    * @param queuePassword		The password to log on to the server
    */
@@ -118,6 +119,7 @@ public class AndroidStomp {
 	
 	/**
 	 * This method is used to send text data to a given queue, it creates a new connection, sends it's message and closes said connection
+	 * It sends the pre-set begin message, the your message then the end values 
 	 * @param destination		queue name prefaced with "/queue/"
 	 * @param message			text string to send to the server
 	 * @return					true if method completes
@@ -137,7 +139,7 @@ public class AndroidStomp {
 	
 	/**
 	 * This method is used to create a connection, look for active messages, use them and then close the connection.  The intent here is to not 
-	 * have this thing open for long, and, thus not subject to most failures.
+	 * have this thing open for long, and, thus not be subject to most failures.
 	 * 
 	 * @param queue			the "/queue/..." to read from
 	 * @param ack			the ack mode "client" or "auto"
@@ -146,8 +148,10 @@ public class AndroidStomp {
 	 * @throws LoginException
 	 */
 	public String getMessage(String queue, String ack) throws IOException, LoginException {
-		
+		//Connect to MQ
 		HashMap<String, Object> streamHash = connect(CONNECTION_STRING, queuePort, queueUserName, queuePassword);
+		
+		//subscribe to queue
 		String inHereSubscribeString = subscribeString.replace("[queue]", queue);
 		if (ack != null) {
 			inHereSubscribeString+="\r\nack:"+ack;
@@ -156,9 +160,9 @@ public class AndroidStomp {
 		((OutputStream)streamHash.get("outStream")).write(begin.getBytes());
 		((OutputStream)streamHash.get("outStream")).write(inHereSubscribeString.getBytes());		
 	    
+		//Read all messages from queue
    		ByteArrayOutputStream buffer = new ByteArrayOutputStream();
    		int nRead;   		
-
    		try {
    			while ((nRead = ((InputStream)streamHash.get("inStream")).read()) > 0) {
    				//	Log.d("Reading", "number:"+nRead); 
@@ -168,9 +172,12 @@ public class AndroidStomp {
    			//This is the "okay" error, basically means there are no messages to read
    		}
    		
+   		//Turn message into human readable from
    		String receipt="";
   		buffer.flush();  			   
 	    String[] Reading = buffer.toString().split("\n");
+	    
+	    //this is used for ack
 	    for (String lineIn : Reading) {
 	    	if (lineIn.contains("message-id:")) {
 	    		receipt=lineIn.split(":",2)[1];
@@ -182,6 +189,8 @@ public class AndroidStomp {
 		((OutputStream)streamHash.get("outStream")).write(unsubscribeString.replace("[queue]",  queue).getBytes());
 		((OutputStream)streamHash.get("outStream")).write(end.getBytes());
 	    ((SSLSocket)streamHash.get("connection")).close();	  
+
+	    //Get the  message portion of the message, and pass it back
 	    String returnVal =Reading.length==0?"No Value":Reading[Reading.length-1];	  
 	    return returnVal;
     }
