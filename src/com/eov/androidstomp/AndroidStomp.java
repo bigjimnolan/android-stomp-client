@@ -19,6 +19,8 @@ import javax.security.auth.login.LoginException;
 /**
  * This method is the bare minimum to get a stomp client working over an ssl connection.  Configuration of the queue to use BKS is also
  * required if you need a secure secure connection.
+ * 
+ * This MUST be complied with an android compatible version of JAVA (1.6) to work correctly.  It took me too long to remember that :)
  */
 public class AndroidStomp {
   //private OutputStream _output;
@@ -28,9 +30,10 @@ public class AndroidStomp {
   private String CONNECTION_STRING;
   private SSLSocketFactory sockFact;
   
+  //These are the stomp messages.  They full definition and list can be found at: http://stomp.github.io/lo
   private String begin = "BEGIN\r\ntransaction:sendtx\r\n\r\n\000\r\n";
   private String end = "COMMIT\r\ntransaction:sendtx\r\n\r\n\000\r\n";
-  private String connectString = "CONNECT\r\nlogin:[userName]\r\npasscode[password]\r\n\r\n\000\r\n";
+  private String connectString = "CONNECT\r\nlogin:[userName]\r\npasscode:[password]\r\n\r\n\000\r\n";
   private String writeString = "SEND\r\ndestination:[destination]\r\n\r\n[message]\000\r\n";	
   private String unsubscribeString = "UNSUBSCRIBE\r\ndestination:[queue]\r\ntransaction:senttx\r\n\r\n\000\r\n";  
   private String subscribeString = "SUBSCRIBE\r\ndestination:[queue]\r\ntransaction:sendtx";
